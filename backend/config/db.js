@@ -5,17 +5,13 @@ const { Pool } = pg;
 
 const formatDatabaseUrl = (rawUrl) => {
   if (!rawUrl) return 'postgresql://postgres:Ajeetgupta@localhost:5432/Ecomerce?sslmode=disable';
-  try {
-    const parsed = new URL(rawUrl);
-    // If Render injected a short hostname like dpg-xxxx without domain, append oregon-postgres.render.com
-    if (parsed.hostname && parsed.hostname.startsWith('dpg-') && !parsed.hostname.includes('.')) {
-      parsed.hostname = `${parsed.hostname}.oregon-postgres.render.com`;
-      return parsed.toString();
-    }
-  } catch (err) {
-    // fallback to raw
-  }
-  return rawUrl;
+  let cleanUrl = rawUrl.trim();
+  // Auto-heal any short Render hostname (dpg-xxxx -> dpg-xxxx.oregon-postgres.render.com)
+  cleanUrl = cleanUrl.replace(/@(dpg-[a-z0-9_-]+)([:\/?]|$)/gi, (match, host, suffix) => {
+    if (host.includes('.')) return match;
+    return '@' + host + '.oregon-postgres.render.com' + suffix;
+  });
+  return cleanUrl;
 };
 
 const finalConnectionString = formatDatabaseUrl(process.env.DATABASE_URL);
