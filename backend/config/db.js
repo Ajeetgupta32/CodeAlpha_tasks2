@@ -3,14 +3,31 @@ import 'dotenv/config';
 
 const { Pool } = pg;
 
+const formatDatabaseUrl = (rawUrl) => {
+  if (!rawUrl) return 'postgresql://postgres:Ajeetgupta@localhost:5432/Ecomerce?sslmode=disable';
+  try {
+    const parsed = new URL(rawUrl);
+    // If Render injected a short hostname like dpg-xxxx without domain, append oregon-postgres.render.com
+    if (parsed.hostname && parsed.hostname.startsWith('dpg-') && !parsed.hostname.includes('.')) {
+      parsed.hostname = `${parsed.hostname}.oregon-postgres.render.com`;
+      return parsed.toString();
+    }
+  } catch (err) {
+    // fallback to raw
+  }
+  return rawUrl;
+};
+
+const finalConnectionString = formatDatabaseUrl(process.env.DATABASE_URL);
+
 const isRemoteDb = Boolean(
-  process.env.DATABASE_URL &&
-  !process.env.DATABASE_URL.includes('localhost') &&
-  !process.env.DATABASE_URL.includes('127.0.0.1')
+  finalConnectionString &&
+  !finalConnectionString.includes('localhost') &&
+  !finalConnectionString.includes('127.0.0.1')
 );
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:Ajeetgupta@localhost:5432/Ecomerce?sslmode=disable',
+  connectionString: finalConnectionString,
   ssl: isRemoteDb ? { rejectUnauthorized: false } : false
 });
 
