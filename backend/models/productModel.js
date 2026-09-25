@@ -17,7 +17,79 @@ class ProductModel {
     }
   }
 
+  static parseImageField(imageField) {
+    if (!imageField) return [];
+    if (Array.isArray(imageField)) {
+      return imageField
+        .filter(Boolean)
+        .map(img => {
+          if (typeof img === 'string') return img.trim();
+          if (typeof img === 'object' && img?.secure_url) return img.secure_url;
+          if (typeof img === 'object' && img?.url) return img.url;
+          return String(img);
+        })
+        .filter(img => img.length > 0 && img !== 'null' && img !== 'undefined');
+    }
+    if (typeof imageField === 'string') {
+      const trimmed = imageField.trim();
+      if (!trimmed || trimmed === '[]' || trimmed === '{}' || trimmed === 'null') return [];
+      if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:image/')) {
+        return [trimmed];
+      }
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        return trimmed
+          .slice(1, -1)
+          .split(',')
+          .map(s => s.trim().replace(/^"|"$/g, ''))
+          .filter(Boolean);
+      }
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return ProductModel.parseImageField(parsed);
+        }
+        if (typeof parsed === 'string') {
+          return ProductModel.parseImageField(parsed);
+        }
+      } catch (err) {
+        const urlMatches = trimmed.match(/https?:\/\/[^\s"',\]\}]+/gi);
+        if (urlMatches && urlMatches.length > 0) {
+          return urlMatches;
+        }
+      }
+    }
+    return [];
+  }
+
+  static parseSizesField(sizesField) {
+    if (!sizesField) return [];
+    if (Array.isArray(sizesField)) {
+      return sizesField.filter(Boolean).map(s => (typeof s === 'string' ? s.trim() : String(s)));
+    }
+    if (typeof sizesField === 'string') {
+      const trimmed = sizesField.trim();
+      if (!trimmed || trimmed === '[]' || trimmed === '{}') return [];
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        return trimmed
+          .slice(1, -1)
+          .split(',')
+          .map(s => s.trim().replace(/^"|"$/g, ''))
+          .filter(Boolean);
+      }
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean);
+        if (typeof parsed === 'string') return [parsed];
+      } catch (e) {
+        return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+      }
+    }
+    return [];
+  }
+
   async save() {
+    const cleanImage = ProductModel.parseImageField(this.image);
+    const cleanSizes = ProductModel.parseSizesField(this.sizes);
     const res = await query(
       `INSERT INTO products (name, description, price, image, category, "subCategory", sizes, bestseller, date)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -26,10 +98,10 @@ class ProductModel {
         this.name,
         this.description,
         this.price,
-        JSON.stringify(this.image),
+        JSON.stringify(cleanImage),
         this.category,
         this.subCategory,
-        JSON.stringify(this.sizes),
+        JSON.stringify(cleanSizes),
         this.bestseller,
         this.date
       ]
@@ -43,15 +115,15 @@ class ProductModel {
     return {
       id: row.id,
       _id: row.id.toString(),
-      name: row.name,
-      description: row.description,
-      price: Number(row.price),
-      category: row.category,
-      subCategory: row.subCategory,
+      name: row.name || 'Untitled Product',
+      description: row.description || '',
+      price: Number(row.price) || 0,
+      category: row.category || 'General',
+      subCategory: row.subCategory || 'Topwear',
       bestseller: Boolean(row.bestseller),
-      sizes: typeof row.sizes === 'string' ? JSON.parse(row.sizes) : (row.sizes || []),
-      image: typeof row.image === 'string' ? JSON.parse(row.image) : (row.image || []),
-      date: Number(row.date)
+      sizes: ProductModel.parseSizesField(row.sizes),
+      image: ProductModel.parseImageField(row.image),
+      date: Number(row.date) || Date.now()
     };
   }
 

@@ -67,7 +67,15 @@ const Orders = () => {
                 className='py-5 border-t border-b text-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white hover:bg-gray-50/50 transition-colors'
               >
                 <div className='flex items-start gap-6 text-sm'>
-                  <img className='w-16 sm:w-20 rounded border object-cover' src={item.image[0]} alt="" />
+                  <img
+                    className='w-16 sm:w-20 aspect-square rounded border object-cover bg-gray-50'
+                    src={(Array.isArray(item.image) && item.image[0]) || (typeof item.image === 'string' && item.image) || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop'}
+                    alt={item.name}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop';
+                    }}
+                  />
                   <div>
                     <p className='sm:text-base font-medium text-gray-900'>{item.name}</p>
                     <div className='flex items-center gap-3 mt-1 text-sm text-gray-600'>

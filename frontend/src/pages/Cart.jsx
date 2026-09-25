@@ -72,7 +72,15 @@ const Cart = () => {
               >
                 <div className='flex items-start gap-4 sm:gap-6'>
                   <Link to={`/product/${productData._id}`}>
-                    <img className='w-16 sm:w-20 object-cover rounded bg-gray-50' src={productData.image[0]} alt={productData.name} />
+                    <img
+                      className='w-16 sm:w-20 aspect-square object-cover rounded bg-gray-50 border'
+                      src={(Array.isArray(productData.image) && productData.image[0]) || (typeof productData.image === 'string' && productData.image) || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop'}
+                      alt={productData.name}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop';
+                      }}
+                    />
                   </Link>
                   <div>
                     <Link to={`/product/${productData._id}`}>
@@ -158,9 +166,13 @@ const Cart = () => {
                   <div>
                     <Link to={`/product/${product._id}`}>
                       <img
-                        className='w-full aspect-square object-cover rounded-md mb-2 bg-gray-50 hover:scale-102 transition'
-                        src={product.image[0]}
+                        className='w-full aspect-square object-cover rounded-md mb-2 bg-gray-50 hover:scale-102 transition border'
+                        src={(Array.isArray(product.image) && product.image[0]) || (typeof product.image === 'string' && product.image) || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop'}
                         alt={product.name}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop';
+                        }}
                       />
                     </Link>
                     <Link to={`/product/${product._id}`}>

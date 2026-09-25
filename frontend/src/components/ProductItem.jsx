@@ -2,6 +2,26 @@ import React, { useContext } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { Link } from 'react-router-dom';
 
+const resolveImageUrl = (img) => {
+    if (!img) return 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop';
+    if (Array.isArray(img)) {
+        const first = img.find(Boolean);
+        if (first) {
+            return typeof first === 'string' ? first : (first.secure_url || first.url || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop');
+        }
+    }
+    if (typeof img === 'string') {
+        const trimmed = img.trim();
+        if (trimmed.startsWith('http')) return trimmed;
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed) && parsed[0]) return typeof parsed[0] === 'string' ? parsed[0] : (parsed[0].secure_url || parsed[0].url);
+            if (typeof parsed === 'string' && parsed.startsWith('http')) return parsed;
+        } catch (_) {}
+    }
+    return 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop';
+};
+
 const ProductItem = ({ id, image, name, price, rating: propRating }) => {
     const { currency, wishlist, toggleWishlist, getProductAverageRating, compareList, addToCompare, removeFromCompare } = useContext(ShopContext);
 
@@ -24,6 +44,8 @@ const ProductItem = ({ id, image, name, price, rating: propRating }) => {
             addToCompare(id);
         }
     };
+
+    const displayImage = resolveImageUrl(image);
 
     return (
         <div className='relative group text-gray-700 bg-white rounded-lg p-2 border border-transparent hover:border-gray-200 hover:shadow-md transition-all duration-300'>
@@ -59,9 +81,13 @@ const ProductItem = ({ id, image, name, price, rating: propRating }) => {
                 <div className='overflow-hidden rounded-md bg-gray-50 aspect-square flex items-center justify-center'>
                     <img
                         className='w-full h-full object-cover group-hover:scale-105 transition ease-in-out duration-300'
-                        src={image && image[0]}
+                        src={displayImage}
                         alt={name}
                         loading="lazy"
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop';
+                        }}
                     />
                 </div>
                 <div className='pt-3 pb-1'>

@@ -64,15 +64,32 @@ const List = ({ token }) => {
         {/* ------ Product List ------ */}
 
         {
-          list.map((item, index) => (
-            <div className='grid grid-cols-[1fr_3fr_1fr] md:grid-cols-[1fr_3fr_1fr_1fr_1fr] items-center gap-2 py-1 px-2 border text-sm' key={index}>
-              <img className='w-12' src={item.image[0]} alt="" />
-              <p>{item.name}</p>
-              <p>{item.category}</p>
-              <p>{currency}{item.price}</p>
-              <p onClick={()=>removeProduct(item._id)} className='text-right md:text-center cursor-pointer text-lg'>X</p>
-            </div>
-          ))
+          list.map((item, index) => {
+            let displayImg = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop';
+            if (Array.isArray(item.image) && item.image.length > 0) {
+              displayImg = item.image[0];
+            } else if (typeof item.image === 'string') {
+              displayImg = item.image.startsWith('http') ? item.image : displayImg;
+            }
+
+            return (
+              <div className='grid grid-cols-[1fr_3fr_1fr] md:grid-cols-[1fr_3fr_1fr_1fr_1fr] items-center gap-2 py-1 px-2 border text-sm' key={index}>
+                <img
+                  className='w-12 h-12 object-cover rounded bg-gray-50 border'
+                  src={displayImg}
+                  alt={item.name}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop';
+                  }}
+                />
+                <p className='font-medium'>{item.name}</p>
+                <p>{item.category}</p>
+                <p className='font-bold'>{currency}{item.price}</p>
+                <p onClick={()=>removeProduct(item._id || item.id)} className='text-right md:text-center cursor-pointer text-lg text-red-500 font-bold'>✕</p>
+              </div>
+            );
+          })
         }
 
       </div>

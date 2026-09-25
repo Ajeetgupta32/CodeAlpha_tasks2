@@ -428,17 +428,58 @@ const ShopContextProvider = (props) => {
         return totalAmount;
     };
 
+    const normalizeProduct = (p) => {
+        let images = [];
+        if (Array.isArray(p.image)) {
+            images = p.image.filter(Boolean).map(img => typeof img === 'string' ? img.trim() : (img?.secure_url || img?.url || String(img)));
+        } else if (typeof p.image === 'string') {
+            const trimmed = p.image.trim();
+            if (trimmed.startsWith('http')) {
+                images = [trimmed];
+            } else {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    images = Array.isArray(parsed) ? parsed.filter(Boolean) : [parsed];
+                } catch {
+                    images = [trimmed];
+                }
+            }
+        }
+        if (images.length === 0) {
+            images = ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop'];
+        }
+
+        let sizes = ['S', 'M', 'L', 'XL'];
+        if (Array.isArray(p.sizes) && p.sizes.length > 0) {
+            sizes = p.sizes;
+        } else if (typeof p.sizes === 'string') {
+            try {
+                const parsed = JSON.parse(p.sizes);
+                if (Array.isArray(parsed) && parsed.length > 0) sizes = parsed;
+            } catch {
+                sizes = p.sizes.split(',').map(s => s.trim()).filter(Boolean);
+            }
+        }
+
+        return {
+            ...p,
+            _id: (p._id || p.id).toString(),
+            image: images,
+            sizes: sizes.length > 0 ? sizes : ['M']
+        };
+    };
+
     const getProductsData = async () => {
         try {
             const response = await axios.get(backendUrl + '/api/product/list');
-            if (response.data.success) {
-                setProducts(response.data.products.reverse());
-            } else {
-                toast.error(response.data.message);
+            if (response.data.success && Array.isArray(response.data.products)) {
+                const normalized = response.data.products.map(normalizeProduct);
+                setProducts(normalized.reverse());
+            } else if (!response.data.success) {
+                console.warn('Product fetch message:', response.data.message);
             }
         } catch (error) {
             console.log(error);
-            toast.error(error.message);
         }
     };
 

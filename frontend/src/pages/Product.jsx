@@ -153,8 +153,33 @@ const Product = () => {
   const fetchProductData = async () => {
     products.forEach((item) => {
       if (item._id.toString() === productId?.toString()) {
-        setProductData(item);
-        setImage(item.image[0]);
+        let imageList = [];
+        if (Array.isArray(item.image)) {
+          imageList = item.image.filter(Boolean);
+        } else if (typeof item.image === 'string') {
+          const trimmed = item.image.trim();
+          if (trimmed.startsWith('http')) {
+            imageList = [trimmed];
+          } else {
+            try {
+              const parsed = JSON.parse(trimmed);
+              imageList = Array.isArray(parsed) ? parsed : [parsed];
+            } catch {
+              imageList = [trimmed];
+            }
+          }
+        }
+        if (imageList.length === 0) {
+          imageList = ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop'];
+        }
+
+        const normalizedItem = {
+          ...item,
+          image: imageList
+        };
+
+        setProductData(normalizedItem);
+        setImage(imageList[0]);
         recordRecentlyViewed(item._id);
         fetchLiveReviews(item._id);
         fetchLiveQA(item._id);
@@ -265,15 +290,19 @@ const Product = () => {
         {/*---------- Product Images Gallery ------------- */}
         <div className='flex-1 flex flex-col-reverse gap-3 sm:flex-row'>
           <div className='flex sm:flex-col overflow-x-auto sm:overflow-y-scroll justify-between sm:justify-normal sm:w-[18.7%] w-full gap-2'>
-            {productData.image.map((item, index) => (
+            {(Array.isArray(productData.image) && productData.image.length > 0 ? productData.image : [image || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop']).map((item, index) => (
               <img
                 onClick={() => setImage(item)}
                 src={item}
                 key={index}
-                className={`w-[24%] sm:w-full sm:mb-2 flex-shrink-0 cursor-pointer rounded border transition-all ${
+                className={`w-[24%] sm:w-full sm:mb-2 flex-shrink-0 cursor-pointer rounded border transition-all object-cover aspect-square ${
                   item === image ? 'border-black ring-1 ring-black' : 'border-gray-200 hover:border-gray-400'
                 }`}
                 alt=""
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop';
+                }}
               />
             ))}
           </div>
@@ -286,8 +315,12 @@ const Product = () => {
             <img
               className={`w-full h-auto object-cover transition-transform duration-150 ${isZoomed ? 'scale-175' : 'scale-100'}`}
               style={isZoomed ? { transformOrigin: `${zoomPos.x}% ${zoomPos.y}%` } : {}}
-              src={image}
+              src={image || (Array.isArray(productData.image) ? productData.image[0] : productData.image)}
               alt={productData.name}
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop';
+              }}
             />
             <span className='absolute bottom-3 right-3 bg-black/75 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-xs pointer-events-none opacity-0 group-hover:opacity-100 transition shadow'>
               🔍 Hover to Zoom
