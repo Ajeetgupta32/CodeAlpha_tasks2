@@ -1,5 +1,5 @@
 import React from 'react'
-import { assets } from '../assets/assets'
+import Logo from './Logo'
 
 const Footer = () => {
   return (
@@ -7,9 +7,11 @@ const Footer = () => {
       <div className='flex flex-col sm:grid grid-cols-[3fr_1fr_1fr] gap-14 my-10 mt-40 text-sm'>
 
         <div>
-            <img src={assets.logo} className='mb-5 w-32' alt="" />
-            <p className='w-full md:w-2/3 text-gray-600'>
-            Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.
+            <div className='mb-5'>
+              <Logo />
+            </div>
+            <p className='w-full md:w-2/3 text-gray-600 leading-relaxed'>
+              NEXUS is your premier destination for modern lifestyle, innovative fashion, and seamless online shopping. Built with lightning-fast delivery, curated collections, and customer-first service.
             </p>
         </div>
 
@@ -26,8 +28,8 @@ const Footer = () => {
         <div>
             <p className='text-xl font-medium mb-5'>GET IN TOUCH</p>
             <ul className='flex flex-col gap-1 text-gray-600'>
-                <li>+1-212-456-7890</li>
-                <li>contact@foreveryou.com</li>
+                <li>+1-800-NEXUS-HQ</li>
+                <li>support@nexusmarketplace.com</li>
             </ul>
         </div>
 
@@ -35,7 +37,7 @@ const Footer = () => {
 
         <div>
             <hr />
-            <p className='py-5 text-sm text-center'>Copyright 2024@ forever.com - All Right Reserved.</p>
+            <p className='py-5 text-sm text-center text-gray-500'>Copyright 2024-2026@ nexusmarketplace.com - All Rights Reserved.</p>
         </div>
 
     </div>

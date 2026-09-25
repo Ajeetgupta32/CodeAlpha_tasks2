@@ -1,0 +1,23 @@
+{
+  "name": "forever-full-stack",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full Stack Ecommerce Application with PostgreSQL, Express, React, and Admin Dashboard",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run server",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:admin": "npm --prefix admin run dev",
+    "start:backend": "npm --prefix backend start",
+    "build:frontend": "npm --prefix frontend run build",
+    "build:admin": "npm --prefix admin run build",
+    "seed": "npm --prefix backend run seed"
+  },
+  "keywords": [
+    "ecommerce",
+    "postgresql",
+    "express",
+    "react"
+  ],
+  "author": "",
+  "license": "ISC"
+}

@@ -1,5 +1,6 @@
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
+import { query } from "../config/db.js";
 import Stripe from 'stripe'
 import razorpay from 'razorpay'
 
@@ -7,13 +8,15 @@ import razorpay from 'razorpay'
 const currency = 'inr'
 const deliveryCharge = 10
 
-// gateway initialize
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+// gateway initialize safely (prevents server crash on startup if payment env vars are omitted)
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
-const razorpayInstance = new razorpay({
-    key_id : process.env.RAZORPAY_KEY_ID,
-    key_secret : process.env.RAZORPAY_KEY_SECRET,
-})
+const razorpayInstance = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)
+    ? new razorpay({
+        key_id : process.env.RAZORPAY_KEY_ID,
+        key_secret : process.env.RAZORPAY_KEY_SECRET,
+    })
+    : null;
 
 // Placing orders using COD Method
 const placeOrder = async (req,res) => {
@@ -21,6 +24,23 @@ const placeOrder = async (req,res) => {
     try {
         
         const { userId, items, amount, address} = req.body;
+
+        // Stock check before placing order
+        for (const item of (items || [])) {
+            const pId = item._id || item.id;
+            if (pId) {
+                const prodRes = await query('SELECT id, name, stock, "inStock" FROM products WHERE id::text = $1', [pId.toString()]);
+                const prod = prodRes.rows[0];
+                if (prod) {
+                    if (prod.inStock === false || (prod.stock !== null && prod.stock < item.quantity)) {
+                        return res.json({
+                            success: false,
+                            message: `Sorry, "${prod.name}" has only ${prod.stock || 0} units left in stock.`
+                        });
+                    }
+                }
+            }
+        }
 
         const orderData = {
             userId,
@@ -34,6 +54,30 @@ const placeOrder = async (req,res) => {
 
         const newOrder = new orderModel(orderData)
         await newOrder.save()
+
+        // Decrement stock for purchased items
+        for (const item of (items || [])) {
+            const pId = item._id || item.id;
+            if (pId) {
+                await query(
+                    `UPDATE products SET stock = GREATEST(0, stock - $1), "inStock" = (CASE WHEN stock - $1 <= 0 THEN false ELSE true END) WHERE id::text = $2`,
+                    [item.quantity || 1, pId.toString()]
+                );
+            }
+        }
+
+        // Reward points (earn 10 points per order, minus any redeemed)
+        const pointsRedeemed = Number(req.body.pointsRedeemed || 0);
+        if (pointsRedeemed > 0) {
+            await query('UPDATE users SET "rewardPoints" = GREATEST(0, COALESCE("rewardPoints", 0) - $1) WHERE id::text = $2', [pointsRedeemed, userId.toString()]);
+        }
+        await query('UPDATE users SET "rewardPoints" = COALESCE("rewardPoints", 0) + 10 WHERE id::text = $1', [userId.toString()]);
+
+        // Create order confirmation notification
+        await query(
+            `INSERT INTO notifications ("userId", title, message, type) VALUES ($1, 'Order Confirmed! 🎉', $2, 'order')`,
+            [userId.toString(), `Your order of $${amount} has been placed successfully. You earned 10 loyalty reward points!`]
+        );
 
         await userModel.findByIdAndUpdate(userId,{cartData:{}})
 
@@ -50,6 +94,9 @@ const placeOrder = async (req,res) => {
 // Placing orders using Stripe Method
 const placeOrderStripe = async (req,res) => {
     try {
+        if (!stripe) {
+            return res.json({ success: false, message: "Stripe payment gateway is not configured on this server." });
+        }
         
         const { userId, items, amount, address} = req.body
         const { origin } = req.headers;
@@ -129,6 +176,9 @@ const verifyStripe = async (req,res) => {
 // Placing orders using Razorpay Method
 const placeOrderRazorpay = async (req,res) => {
     try {
+        if (!razorpayInstance) {
+            return res.json({ success: false, message: "Razorpay payment gateway is not configured on this server." });
+        }
         
         const { userId, items, amount, address} = req.body
 
@@ -167,6 +217,9 @@ const placeOrderRazorpay = async (req,res) => {
 
 const verifyRazorpay = async (req,res) => {
     try {
+        if (!razorpayInstance) {
+            return res.json({ success: false, message: "Razorpay payment gateway is not configured on this server." });
+        }
         
         const { userId, razorpay_order_id  } = req.body
 
@@ -217,18 +270,83 @@ const userOrders = async (req,res) => {
 }
 
 // update order status from Admin Panel
-const updateStatus = async (req,res) => {
+const updateStatus = async (req, res) => {
     try {
-        
-        const { orderId, status } = req.body
-
-        await orderModel.findByIdAndUpdate(orderId, { status })
-        res.json({success:true,message:'Status Updated'})
-
+        const { orderId, status } = req.body;
+        await orderModel.findByIdAndUpdate(orderId, { status });
+        res.json({ success: true, message: 'Status Updated' });
     } catch (error) {
-        console.log(error)
-        res.json({success:false,message:error.message})
+        console.log(error);
+        res.json({ success: false, message: error.message });
     }
-}
+};
 
-export {verifyRazorpay, verifyStripe ,placeOrder, placeOrderStripe, placeOrderRazorpay, allOrders, userOrders, updateStatus}
+// Customer Cancel Order
+const cancelOrder = async (req, res) => {
+    try {
+        const { userId, orderId, reason } = req.body;
+        const order = await orderModel.findById(orderId);
+        if (!order) {
+            return res.json({ success: false, message: 'Order not found' });
+        }
+        if (order.userId.toString() !== userId.toString()) {
+            return res.json({ success: false, message: 'Unauthorized action' });
+        }
+        if (order.status === 'Cancelled') {
+            return res.json({ success: false, message: 'Order is already cancelled' });
+        }
+        if (order.status !== 'Order Placed' && order.status !== 'Packing' && order.status !== 'Processing') {
+            return res.json({ success: false, message: 'Order cannot be cancelled at this stage' });
+        }
+
+        await orderModel.findByIdAndUpdate(orderId, { status: 'Cancelled' });
+        await query(
+            `INSERT INTO notifications ("userId", title, message, type) VALUES ($1, 'Order Cancelled', $2, 'order')`,
+            [userId.toString(), `Your order #${orderId} has been cancelled successfully.`]
+        );
+        res.json({ success: true, message: 'Order cancelled successfully' });
+    } catch (error) {
+        console.error(error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// Customer Request Return
+const returnOrder = async (req, res) => {
+    try {
+        const { userId, orderId, reason } = req.body;
+        const order = await orderModel.findById(orderId);
+        if (!order) {
+            return res.json({ success: false, message: 'Order not found' });
+        }
+        if (order.userId.toString() !== userId.toString()) {
+            return res.json({ success: false, message: 'Unauthorized action' });
+        }
+        if (order.status !== 'Delivered') {
+            return res.json({ success: false, message: 'Only delivered orders can be returned' });
+        }
+
+        await orderModel.findByIdAndUpdate(orderId, { status: 'Return Requested' });
+        await query(
+            `INSERT INTO notifications ("userId", title, message, type) VALUES ($1, 'Return Initiated 📦', $2, 'order')`,
+            [userId.toString(), `Return request initiated for order #${orderId}. Pickup will be scheduled shortly.`]
+        );
+        res.json({ success: true, message: 'Return request submitted successfully' });
+    } catch (error) {
+        console.error(error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+export {
+    verifyRazorpay,
+    verifyStripe,
+    placeOrder,
+    placeOrderStripe,
+    placeOrderRazorpay,
+    allOrders,
+    userOrders,
+    updateStatus,
+    cancelOrder,
+    returnOrder
+};

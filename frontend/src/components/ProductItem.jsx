@@ -1,20 +1,83 @@
-import React, { useContext } from 'react'
-import { ShopContext } from '../context/ShopContext'
-import {Link} from 'react-router-dom'
+import React, { useContext } from 'react';
+import { ShopContext } from '../context/ShopContext';
+import { Link } from 'react-router-dom';
 
-const ProductItem = ({id,image,name,price}) => {
-    
-    const {currency} = useContext(ShopContext);
+const ProductItem = ({ id, image, name, price, rating: propRating }) => {
+    const { currency, wishlist, toggleWishlist, getProductAverageRating, compareList, addToCompare, removeFromCompare } = useContext(ShopContext);
 
-  return (
-    <Link onClick={()=>scrollTo(0,0)} className='text-gray-700 cursor-pointer' to={`/product/${id}`}>
-      <div className=' overflow-hidden'>
-        <img className='hover:scale-110 transition ease-in-out' src={image[0]} alt="" />
-      </div>
-      <p className='pt-3 pb-1 text-sm'>{name}</p>
-      <p className=' text-sm font-medium'>{currency}{price}</p>
-    </Link>
-  )
-}
+    const isFav = wishlist.includes(id?.toString());
+    const inCompare = compareList?.includes(id?.toString());
+    const rating = propRating || getProductAverageRating(id);
 
-export default ProductItem
+    const handleWishlistClick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleWishlist(id);
+    };
+
+    const handleCompareClick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (inCompare) {
+            removeFromCompare(id);
+        } else {
+            addToCompare(id);
+        }
+    };
+
+    return (
+        <div className='relative group text-gray-700 bg-white rounded-lg p-2 border border-transparent hover:border-gray-200 hover:shadow-md transition-all duration-300'>
+            {/* Compare Button */}
+            <button
+                onClick={handleCompareClick}
+                title={inCompare ? "Remove from compare" : "Add to compare"}
+                className={`absolute top-3.5 left-3.5 z-10 px-2 py-0.5 rounded text-[10px] font-semibold backdrop-blur-md shadow-xs transition-all duration-200 ${
+                    inCompare
+                        ? 'bg-black text-white scale-105'
+                        : 'bg-white/85 text-gray-600 hover:bg-white hover:text-black opacity-0 group-hover:opacity-100 sm:opacity-0'
+                }`}
+            >
+                {inCompare ? "✓ Compare" : "+ Compare"}
+            </button>
+
+            {/* Wishlist Heart Toggle */}
+            <button
+                onClick={handleWishlistClick}
+                title={isFav ? "Remove from wishlist" : "Add to wishlist"}
+                className={`absolute top-3.5 right-3.5 z-10 p-1.5 rounded-full backdrop-blur-md shadow-xs transition-all duration-200 ${
+                    isFav
+                        ? 'bg-white text-red-500 scale-105'
+                        : 'bg-white/80 text-gray-400 hover:text-red-500 hover:bg-white'
+                }`}
+            >
+                <svg className='w-4 h-4' fill={isFav ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+            </button>
+
+            <Link onClick={() => scrollTo(0, 0)} className='cursor-pointer block' to={`/product/${id}`}>
+                <div className='overflow-hidden rounded-md bg-gray-50 aspect-square flex items-center justify-center'>
+                    <img
+                        className='w-full h-full object-cover group-hover:scale-105 transition ease-in-out duration-300'
+                        src={image && image[0]}
+                        alt={name}
+                        loading="lazy"
+                    />
+                </div>
+                <div className='pt-3 pb-1'>
+                    <div className='flex items-center justify-between text-xs mb-1'>
+                        <div className='flex items-center gap-1 text-amber-500'>
+                            <span>★</span>
+                            <span className='font-bold text-gray-700'>{rating}</span>
+                        </div>
+                        <span className='text-[10px] text-green-700 font-medium bg-green-50 px-1.5 py-0.2 rounded'>Free Delivery</span>
+                    </div>
+                    <p className='text-xs sm:text-sm text-gray-800 line-clamp-1 font-medium group-hover:text-black transition-colors'>{name}</p>
+                    <p className='text-sm sm:text-base font-bold text-gray-900 mt-1'>{currency}{price}</p>
+                </div>
+            </Link>
+        </div>
+    );
+};
+
+export default ProductItem;

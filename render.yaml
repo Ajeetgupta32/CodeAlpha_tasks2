@@ -1,0 +1,79 @@
+# Render Blueprint Specification for NEXUS Marketplace
+# Deploy everything (PostgreSQL, Backend API, Customer Frontend, Admin Portal) in one go.
+
+databases:
+  - name: nexus-db
+    databaseName: nexus_ecommerce
+    user: nexus_admin
+    plan: starter
+    ipAllowList: [] # empty allows internal network & render services
+
+services:
+  # 1. Express / Node.js Backend Web Service
+  - type: web
+    name: nexus-backend
+    runtime: node
+    rootDir: backend
+    plan: starter
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nexus-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@example.com
+      - key: ADMIN_PASSWORD
+        value: greatstack123
+      - key: CLOUDINARY_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_SECRET_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+
+  # 2. Customer Storefront (Vite React SPA)
+  - type: web
+    name: nexus-store
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_BACKEND_URL
+        fromService:
+          type: web
+          name: nexus-backend
+          property: host
+
+  # 3. Admin & Seller Portal (Vite React SPA)
+  - type: web
+    name: nexus-admin
+    runtime: static
+    rootDir: admin
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_BACKEND_URL
+        fromService:
+          type: web
+          name: nexus-backend
+          property: host
