@@ -16,16 +16,21 @@ const addProduct = async (req, res) => {
         const images = [image1, image2, image3, image4].filter((item) => item !== undefined)
 
         let imagesUrl = [];
-        try {
-            imagesUrl = await Promise.all(
-                images.map(async (item) => {
-                    let result = await cloudinary.uploader.upload(item.path, { resource_type: 'image' });
-                    return result.secure_url;
-                })
-            );
-        } catch (uploadError) {
-            console.warn("Cloudinary upload failed, using fallback placeholder images:", uploadError.message);
-            imagesUrl = images.map(() => 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&auto=format&fit=crop');
+        if (images.length > 0) {
+            try {
+                imagesUrl = await Promise.all(
+                    images.map(async (item) => {
+                        let result = await cloudinary.uploader.upload(item.path, { resource_type: 'image' });
+                        return result.secure_url;
+                    })
+                );
+            } catch (uploadError) {
+                console.error("Cloudinary upload failed:", uploadError);
+                return res.json({
+                    success: false,
+                    message: `Cloudinary image upload failed: ${uploadError.message}. Please check your CLOUDINARY_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_SECRET_KEY (or CLOUDINARY_URL) environment variables on Render.`
+                });
+            }
         }
 
         const productData = {
