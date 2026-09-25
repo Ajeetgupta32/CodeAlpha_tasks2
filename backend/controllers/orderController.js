@@ -8,15 +8,32 @@ import razorpay from 'razorpay'
 const currency = 'inr'
 const deliveryCharge = 10
 
-// gateway initialize safely (prevents server crash on startup if payment env vars are omitted)
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+// gateway initialize safely (guarantees server never crashes on startup under any environment)
+let stripe = null;
+try {
+    const stripeKey = (process.env.STRIPE_SECRET_KEY || '').trim();
+    if (stripeKey && stripeKey !== 'undefined' && stripeKey !== 'null') {
+        stripe = new Stripe(stripeKey);
+    }
+} catch (err) {
+    console.warn("Stripe init skipped:", err.message);
+    stripe = null;
+}
 
-const razorpayInstance = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)
-    ? new razorpay({
-        key_id : process.env.RAZORPAY_KEY_ID,
-        key_secret : process.env.RAZORPAY_KEY_SECRET,
-    })
-    : null;
+let razorpayInstance = null;
+try {
+    const rzpKey = (process.env.RAZORPAY_KEY_ID || '').trim();
+    const rzpSecret = (process.env.RAZORPAY_KEY_SECRET || '').trim();
+    if (rzpKey && rzpSecret && rzpKey !== 'undefined' && rzpSecret !== 'undefined' && rzpKey !== 'null' && rzpSecret !== 'null') {
+        razorpayInstance = new razorpay({
+            key_id: rzpKey,
+            key_secret: rzpSecret,
+        });
+    }
+} catch (err) {
+    console.warn("Razorpay init skipped:", err.message);
+    razorpayInstance = null;
+}
 
 // Placing orders using COD Method
 const placeOrder = async (req,res) => {
