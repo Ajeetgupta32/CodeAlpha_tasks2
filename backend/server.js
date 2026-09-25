@@ -19,9 +19,35 @@ const PORT = process.env.PORT || 5000;
 initDB();
 connectCloudinary();
 
-// Middlewares
-app.use(express.json());
-app.use(cors());
+// Configure comprehensive CORS support for Vercel, localhost, and custom domains
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, Postman) or any origin from Vercel / localhost
+    callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'token',
+    'admin_token',
+    'x-requested-with',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  exposedHeaders: ['Content-Range', 'X-Content-Range', 'token'],
+  optionsSuccessStatus: 200
+};
+
+// Middlewares - CORS MUST be first
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // API endpoints
 app.use('/api/user', userRouter);
@@ -35,6 +61,17 @@ app.post('/api/admin/login', adminLogin);
 
 app.get('/', (req, res) => {
   res.send("API Working");
+});
+
+// Global error handler with CORS preservation
+app.use((err, req, res, next) => {
+  console.error("Global server error:", err);
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error"
+  });
 });
 
 const server = app.listen(PORT, () => console.log('server running on port :' + PORT));
