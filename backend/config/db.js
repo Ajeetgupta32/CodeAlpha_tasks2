@@ -185,6 +185,117 @@ export const initDB = async () => {
       console.log('Sample customer Q&A seeded into PostgreSQL.');
     }
 
+    // Auto-heal duplicate fallback placeholder products in PostgreSQL
+    const placeholderProducts = await client.query(`
+      SELECT id FROM products WHERE image::text LIKE '%photo-1521572267360-ee0c2909d518%' OR name LIKE '%Cotton Cotton%'
+    `);
+
+    if (placeholderProducts.rows.length > 0) {
+      const sampleCatalogs = [
+        {
+          name: "Men Slim-Fit Vintage Denim Jacket",
+          description: "Premium washed rugged denim trucker jacket with button-front closure, dual chest pockets, and comfortable all-season weight.",
+          price: 68,
+          category: "Men",
+          subCategory: "Winterwear",
+          sizes: ["S", "M", "L", "XL"],
+          bestseller: true,
+          image: ["https://images.unsplash.com/photo-1495105787522-5334e3ffa0ef?w=600&auto=format&fit=crop"]
+        },
+        {
+          name: "Women Elegant Floral Summer Midi Dress",
+          description: "Breathable airy chiffon fabric with subtle ruffle detailing, A-line silhouette, and comfortable elastic smocked bodice.",
+          price: 54,
+          category: "Women",
+          subCategory: "Topwear",
+          sizes: ["XS", "S", "M", "L"],
+          bestseller: true,
+          image: ["https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=600&auto=format&fit=crop"]
+        },
+        {
+          name: "Men Classic Oxford Cotton Button-Down Shirt",
+          description: "100% pure combed cotton tailored shirt with button-down collar, wrinkle-resistant finish, and versatile casual-smart styling.",
+          price: 42,
+          category: "Men",
+          subCategory: "Topwear",
+          sizes: ["S", "M", "L", "XL", "XXL"],
+          bestseller: false,
+          image: ["https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=600&auto=format&fit=crop"]
+        },
+        {
+          name: "Women Urban Oversized Heavyweight Fleece Hoodie",
+          description: "Ultra-cozy brushed fleece hoodie featuring dropped shoulders, kangaroo pocket, and double-layered ribbed cuffs.",
+          price: 48,
+          category: "Women",
+          subCategory: "Winterwear",
+          sizes: ["S", "M", "L"],
+          bestseller: true,
+          image: ["https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&auto=format&fit=crop"]
+        },
+        {
+          name: "Men Relaxed Fit Tapered Cargo Pants",
+          description: "Durable cotton twill utility cargo pants with 6 functional pockets, elastic drawstring waist, and reinforced knee stitching.",
+          price: 52,
+          category: "Men",
+          subCategory: "Bottomwear",
+          sizes: ["30", "32", "34", "36"],
+          bestseller: false,
+          image: ["https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=600&auto=format&fit=crop"]
+        },
+        {
+          name: "Women High-Rise Tailored Wide-Leg Trousers",
+          description: "Flowing structured crepe trousers with front pleats, hidden side zip, and a lengthening high-waisted cut.",
+          price: 58,
+          category: "Women",
+          subCategory: "Bottomwear",
+          sizes: ["XS", "S", "M", "L"],
+          bestseller: true,
+          image: ["https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=600&auto=format&fit=crop"]
+        },
+        {
+          name: "Kids Colorful Organic Cotton Graphic Sweatshirt",
+          description: "Super-soft organic fleece with playful modern print, ribbed crewneck, and tagless neckline for maximum comfort.",
+          price: 32,
+          category: "Kids",
+          subCategory: "Topwear",
+          sizes: ["4Y", "6Y", "8Y", "10Y"],
+          bestseller: false,
+          image: ["https://images.unsplash.com/photo-1519457431-44ccd64a579b?w=600&auto=format&fit=crop"]
+        },
+        {
+          name: "Men Heritage Wool Blend Winter Overcoat",
+          description: "Structured single-breasted wool trench coat with notched lapels, deep welt pockets, and insulated satin lining.",
+          price: 110,
+          category: "Men",
+          subCategory: "Winterwear",
+          sizes: ["M", "L", "XL"],
+          bestseller: true,
+          image: ["https://images.unsplash.com/photo-1544441893-675973e31985?w=600&auto=format&fit=crop"]
+        }
+      ];
+
+      for (let i = 0; i < placeholderProducts.rows.length; i++) {
+        const prodId = placeholderProducts.rows[i].id;
+        const sample = sampleCatalogs[i % sampleCatalogs.length];
+        await client.query(`
+          UPDATE products 
+          SET name = $1, description = $2, price = $3, category = $4, "subCategory" = $5, sizes = $6, bestseller = $7, image = $8
+          WHERE id = $9
+        `, [
+          sample.name,
+          sample.description,
+          sample.price,
+          sample.category,
+          sample.subCategory,
+          JSON.stringify(sample.sizes),
+          sample.bestseller,
+          JSON.stringify(sample.image),
+          prodId
+        ]);
+      }
+      console.log(`Updated ${placeholderProducts.rows.length} placeholder products with diverse fashion catalog items.`);
+    }
+
     client.release();
     console.log('PostgreSQL tables initialized successfully.');
   } catch (error) {
