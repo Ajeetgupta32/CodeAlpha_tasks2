@@ -1,6 +1,45 @@
-import { v2 as cloudinary } from "cloudinary"
-import productModel from "../models/productModel.js"
-import { query } from "../config/db.js"
+import { v2 as cloudinary } from "cloudinary";
+import productModel from "../models/productModel.js";
+import { query } from "../config/db.js";
+import { uploadImageToSupabase, isSupabaseConfigured } from "../config/supabase.js";
+
+// Multi-provider Image Upload (Supabase Storage + Cloudinary)
+const uploadProductImages = async (images) => {
+    if (!images || images.length === 0) return [];
+
+    // 1. Supabase Storage (if configured)
+    if (isSupabaseConfigured()) {
+        try {
+            console.log(`Uploading ${images.length} image(s) to Supabase Storage...`);
+            const urls = await Promise.all(images.map((item) => uploadImageToSupabase(item)));
+            return urls;
+        } catch (supabaseError) {
+            console.error("Supabase upload error:", supabaseError.message);
+            // If Cloudinary is available as fallback, try it; otherwise throw
+            if (process.env.CLOUDINARY_NAME || process.env.CLOUDINARY_URL) {
+                console.log("Attempting Cloudinary fallback...");
+            } else {
+                throw new Error(`Supabase upload failed: ${supabaseError.message}`);
+            }
+        }
+    }
+
+    // 2. Cloudinary (if configured)
+    if (process.env.CLOUDINARY_NAME || process.env.CLOUDINARY_URL) {
+        console.log(`Uploading ${images.length} image(s) to Cloudinary...`);
+        const urls = await Promise.all(
+            images.map(async (item) => {
+                let result = await cloudinary.uploader.upload(item.path, { resource_type: 'image' });
+                return result.secure_url;
+            })
+        );
+        return urls;
+    }
+
+    throw new Error(
+        "No image storage provider configured. Please set SUPABASE_URL & SUPABASE_KEY (or CLOUDINARY credentials) in your Render environment variables."
+    );
+};
 
 // function for add product
 const addProduct = async (req, res) => {
@@ -18,17 +57,12 @@ const addProduct = async (req, res) => {
         let imagesUrl = [];
         if (images.length > 0) {
             try {
-                imagesUrl = await Promise.all(
-                    images.map(async (item) => {
-                        let result = await cloudinary.uploader.upload(item.path, { resource_type: 'image' });
-                        return result.secure_url;
-                    })
-                );
+                imagesUrl = await uploadProductImages(images);
             } catch (uploadError) {
-                console.error("Cloudinary upload failed:", uploadError);
+                console.error("Image upload failed:", uploadError);
                 return res.json({
                     success: false,
-                    message: `Cloudinary image upload failed: ${uploadError.message}. Please check your CLOUDINARY_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_SECRET_KEY (or CLOUDINARY_URL) environment variables on Render.`
+                    message: `Image upload failed: ${uploadError.message}`
                 });
             }
         }

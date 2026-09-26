@@ -11,13 +11,20 @@ import orderRouter from './routes/orderRoute.js';
 import adminRouter from './routes/adminRoute.js';
 import { adminLogin } from './controllers/userController.js';
 
+import { isSupabaseConfigured } from './config/supabase.js';
+
 // App config
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Initialize Database & Services
+// Initialize Database & Storage Providers
 initDB();
 connectCloudinary();
+if (isSupabaseConfigured()) {
+  console.log("Supabase Storage is active for product image uploads.");
+} else {
+  console.log("Supabase Storage not configured yet. (Set SUPABASE_URL & SUPABASE_KEY to activate)");
+}
 
 // Configure comprehensive CORS support for Vercel, localhost, and custom domains
 const corsOptions = {
