@@ -3,9 +3,21 @@ import fs from 'fs';
 import path from 'path';
 import 'dotenv/config';
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || '';
-const supabaseBucket = process.env.SUPABASE_BUCKET || 'products';
+const rawSupabaseUrl = process.env.SUPABASE_URL || '';
+// Clean up URL: remove /rest/v1, trailing slashes, or whitespace
+const supabaseUrl = rawSupabaseUrl
+  .trim()
+  .replace(/\/rest\/v1\/?$/i, '')
+  .replace(/\/+$/, '');
+
+const supabaseKey = (
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  ''
+).trim();
+
+const supabaseBucket = (process.env.SUPABASE_BUCKET || 'products').trim();
 
 let supabaseClient = null;
 
